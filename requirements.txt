@@ -1,0 +1,7 @@
+streamlit
+pandas
+plotly
+Pillow
+gspread
+oauth2client
+cloudinary
