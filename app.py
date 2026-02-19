@@ -7,7 +7,7 @@ import google_sheets
 import cloudinary_uploader
 
 # --- Constants ---
-ICON_OPTIONS = ["Default (●)", "🌵", "🌊", "❄️", "🌲", "🪨", "⛏️"]
+ICON_OPTIONS = ["Default (●)", "🌵", "🌊", "❄️", "🌲", "🪨", "⛏️", "👨‍🌾", "🏡"]
 ICON_MAP_REVERSE = {
     "Default (●)": "Default",
     "🌵": "🌵",
@@ -15,7 +15,9 @@ ICON_MAP_REVERSE = {
     "❄️": "❄️",
     "🌲": "🌲",
     "🪨": "🪨",
-    "⛏️": "⛏️"
+    "⛏️": "⛏️",
+    "👨‍🌾": "👨‍🌾",
+    "🏡": "🏡"
 }
 ICON_MAP_DISPLAY = {v: k for k, v in ICON_MAP_REVERSE.items()}
 
