@@ -171,230 +171,207 @@ if locations_data:
     # Split DataFrames
     df_default = df[df["icon"] == "Default"]
     df_emoji = df[df["icon"] != "Default"]
+
+    # --- Layout: Map (Left) vs Details (Right) ---
+    col_map, col_details = st.columns([2, 1])
+
+    with col_map:
+        # Base Figure
+        fig = go.Figure()
+
+        # Trace 0: Default Markers
+        if not df_default.empty:
+            fig.add_trace(go.Scatter(
+                x=df_default["x"],
+                y=df_default["z"],
+                mode='markers',
+                marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')),
+                text=df_default["name"],
+                hoverinfo='text',
+                name="Markers",
+                customdata=df_default["id"] # Store ID for selection
+            ))
+        else:
+            fig.add_trace(go.Scatter(x=[], y=[], mode='markers', name="Markers"))
+
+        # Trace 1: Emoji Markers
+        if not df_emoji.empty:
+            fig.add_trace(go.Scatter(
+                x=df_emoji["x"],
+                y=df_emoji["z"],
+                mode='text',
+                text=df_emoji["icon"],
+                textfont=dict(size=20),
+                hovertext=df_emoji["name"],
+                hoverinfo='text',
+                name="Icons",
+                customdata=df_emoji["id"] # Store ID for selection
+            ))
+        else:
+            fig.add_trace(go.Scatter(x=[], y=[], mode='text', name="Icons"))
+
+        fig.update_layout(
+            title="World Map (X vs Z)",
+            xaxis_title="X Coordinate",
+            yaxis_title="Z Coordinate",
+            height=600,
+            clickmode='event+select',
+            plot_bgcolor='#F5DEB3',
+            margin=dict(l=0, r=0, t=30, b=0)
+        )
+
+        event = st.plotly_chart(fig, on_select="rerun", selection_mode="points", use_container_width=True, config={'scrollZoom': True})
     
-    # Base Figure
-    fig = go.Figure()
-
-    # Trace 0: Default Markers
-    if not df_default.empty:
-        fig.add_trace(go.Scatter(
-            x=df_default["x"],
-            y=df_default["z"],
-            mode='markers',
-            marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')),
-            text=df_default["name"],
-            hoverinfo='text',
-            name="Markers",
-            customdata=df_default["id"] # Store ID for selection
-        ))
-    else:
-        fig.add_trace(go.Scatter(x=[], y=[], mode='markers', name="Markers"))
-
-    # Trace 1: Emoji Markers
-    if not df_emoji.empty:
-        fig.add_trace(go.Scatter(
-            x=df_emoji["x"],
-            y=df_emoji["z"],
-            mode='text',
-            text=df_emoji["icon"],
-            textfont=dict(size=20),
-            hovertext=df_emoji["name"],
-            hoverinfo='text',
-            name="Icons",
-            customdata=df_emoji["id"] # Store ID for selection
-        ))
-    else:
-        fig.add_trace(go.Scatter(x=[], y=[], mode='text', name="Icons"))
-
-    fig.update_layout(
-        title="World Map (X vs Z)",
-        xaxis_title="X Coordinate",
-        yaxis_title="Z Coordinate",
-        width=800,
-        height=600,
-        clickmode='event+select',
-        plot_bgcolor='#F5DEB3'
-    )
-
-    event = st.plotly_chart(fig, on_select="rerun", selection_mode="points", use_container_width=True, config={'scrollZoom': True})
-    
+    # Capture selection
     selected_ids = []
     if event and "selection" in event and "points" in event["selection"]:
          for p in event["selection"]["points"]:
-             # p contains 'customdata' if we passed it
              if "customdata" in p:
                  selected_ids.append(p["customdata"])
 
-    # --- Details / Edit Section ---
-    st.markdown("---")
-    
-    # Check if we are in Edit Mode
-    if st.session_state.edit_mode and st.session_state.edit_id:
-        st.subheader("✏️ Edit Location")
-        
-        # Find the location to edit
-        edit_index = next((i for i, item in enumerate(st.session_state.locations) if item["id"] == st.session_state.edit_id), -1)
-        
-        if edit_index != -1:
-            loc_to_edit = st.session_state.locations[edit_index]
+    with col_details:
+        st.markdown("### Location Details")
+
+        if st.session_state.edit_mode and st.session_state.edit_id:
+            st.info("✏️ Edit Mode Active")
             
-            with st.form("edit_location_form"):
-                new_name = st.text_input("Location Name", value=loc_to_edit['name'])
+            # Find the location to edit
+            edit_index = next((i for i, item in enumerate(st.session_state.locations) if item["id"] == st.session_state.edit_id), -1)
+            
+            if edit_index != -1:
+                loc_to_edit = st.session_state.locations[edit_index]
                 
-                # Icon Selection
-                current_icon_val = loc_to_edit.get("icon", "Default")
-                current_display = ICON_MAP_DISPLAY.get(current_icon_val, "Default (●)")
-                index_val = ICON_OPTIONS.index(current_display) if current_display in ICON_OPTIONS else 0
-                
-                new_icon_display = st.selectbox("Map Icon", options=ICON_OPTIONS, index=index_val)
-                new_icon_value = ICON_MAP_REVERSE[new_icon_display]
+                with st.form("edit_location_form"):
+                    new_name = st.text_input("Name", value=loc_to_edit['name'])
+                    
+                    # Icon Selection
+                    current_icon_val = loc_to_edit.get("icon", "Default")
+                    current_display = ICON_MAP_DISPLAY.get(current_icon_val, "Default (●)")
+                    index_val = ICON_OPTIONS.index(current_display) if current_display in ICON_OPTIONS else 0
+                    
+                    new_icon_display = st.selectbox("Icon", options=ICON_OPTIONS, index=index_val)
+                    new_icon_value = ICON_MAP_REVERSE[new_icon_display]
 
 
-                c1, c2 = st.columns(2)
-                new_x = c1.number_input("X", value=loc_to_edit['x'], step=1)
-                new_z = c2.number_input("Z", value=loc_to_edit['z'], step=1)
-                new_y = st.number_input("Y (Height)", value=loc_to_edit['y'], step=1)
-                new_desc = st.text_area("Description", value=loc_to_edit['description'])
-                
-                # Show existing images with delete option
-                current_images = loc_to_edit.get("image_paths", [])
-                st.caption("Existing Images (Check to delete/delink):")
-                
-                images_to_keep = []
-                
-                if current_images:
-                    cols = st.columns(3)
-                    for i, img_url in enumerate(current_images):
-                        with cols[i % 3]:
-                            # Safely render image (Cloud vs Local)
+                    c1, c2 = st.columns(2)
+                    new_x = c1.number_input("X", value=loc_to_edit['x'], step=1)
+                    new_z = c2.number_input("Z", value=loc_to_edit['z'], step=1)
+                    new_y = st.number_input("Y", value=loc_to_edit['y'], step=1)
+                    new_desc = st.text_area("Description", value=loc_to_edit['description'])
+                    
+                    # Show existing images with delete option
+                    current_images = loc_to_edit.get("image_paths", [])
+                    st.caption("Existing Images:")
+                    
+                    images_to_keep = []
+                    
+                    if current_images:
+                        for i, img_url in enumerate(current_images):
                             if img_url.startswith("http"):
-                                st.image(img_url, width=150)
+                                st.image(img_url, width=100)
                             else:
-                                import os
-                                if os.path.exists(img_url):
-                                    st.image(img_url, width=150)
-                                else:
-                                    st.warning(f"Missing: {img_url}")
-                                    st.caption("Image not found on cloud")
+                                st.image(img_url, width=100)
 
                             if not st.checkbox("Delete", key=f"del_img_{i}_{st.session_state.edit_id}"):
                                 images_to_keep.append(img_url)
-                
-                st.caption("Add more images:")
-                new_images_upload = st.file_uploader("Add Photos", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
-                
-                # Ensure this is the LAST element in the form
-                submitted_update = st.form_submit_button("Update Location", type="primary")
-
-            if submitted_update:
-                # Update fields
-                final_new_name = new_name.strip() if new_name else f"Location @ {new_x}, {new_z}"
-                loc_to_edit['name'] = final_new_name
-                loc_to_edit['x'] = new_x
-                loc_to_edit['y'] = new_y
-                loc_to_edit['z'] = new_z
-                loc_to_edit['description'] = new_desc
-                loc_to_edit['icon'] = new_icon_value
-                
-                # Update images list (removals are implicit by not adding to images_to_keep)
-                loc_to_edit['image_paths'] = images_to_keep
-
-                # Add new images
-                if new_images_upload:
-                    with st.spinner("Uploading new images..."):
-                        for img_file in new_images_upload:
-                            url = save_image(img_file)
-                            if url:
-                                loc_to_edit['image_paths'].append(url)
-                            else:
-                                st.warning(f"Failed to upload {img_file.name}")
-                
-                save_data(st.session_state.locations)
-                st.session_state.edit_mode = False
-                st.session_state.edit_id = None
-                st.success("Location updated successfully!")
-                st.rerun()
-            
-            c_cancel, c_delete = st.columns([1, 1])
-            with c_cancel:
-                if st.button("Cancel Edit"):
-                    st.session_state.edit_mode = False
-                    st.session_state.edit_id = None
-                    st.rerun()
-            
-            with c_delete:
-                if st.button("🗑️ Delete Location", type="primary"):
-                    st.session_state.locations.pop(edit_index)
-                    save_data(st.session_state.locations)
                     
+                    st.caption("Add more images:")
+                    new_images_upload = st.file_uploader("Upload", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+                    
+                    submitted_update = st.form_submit_button("Update", type="primary")
+
+                if submitted_update:
+                    final_new_name = new_name.strip() if new_name else f"Location @ {new_x}, {new_z}"
+                    loc_to_edit['name'] = final_new_name
+                    loc_to_edit['x'] = new_x
+                    loc_to_edit['y'] = new_y
+                    loc_to_edit['z'] = new_z
+                    loc_to_edit['description'] = new_desc
+                    loc_to_edit['icon'] = new_icon_value
+                    
+                    loc_to_edit['image_paths'] = images_to_keep
+
+                    if new_images_upload:
+                        with st.spinner("Uploading..."):
+                            for img_file in new_images_upload:
+                                url = save_image(img_file)
+                                if url:
+                                    loc_to_edit['image_paths'].append(url)
+                    
+                    save_data(st.session_state.locations)
                     st.session_state.edit_mode = False
                     st.session_state.edit_id = None
-                    st.success("Location deleted!")
+                    st.success("Updated!")
                     st.rerun()
+                
+                c_cancel, c_delete = st.columns([1, 1])
+                with c_cancel:
+                    if st.button("Cancel"):
+                        st.session_state.edit_mode = False
+                        st.session_state.edit_id = None
+                        st.rerun()
+                
+                with c_delete:
+                    if st.button("Delete", type="primary"):
+                        st.session_state.locations.pop(edit_index)
+                        save_data(st.session_state.locations)
+                        
+                        st.session_state.edit_mode = False
+                        st.session_state.edit_id = None
+                        st.success("Deleted!")
+                        st.rerun()
+
+            else:
+                st.error("Location not found.")
+                st.session_state.edit_mode = False
+                st.rerun()
+
+        # Normal Details View
+        elif selected_ids:
+            # Filter DF by selected ID (Handling multiple selections by showing first or list)
+            # Default to showing the first selected one for simplicity in side-panel
+            
+            selected_id = selected_ids[0]
+            loc_data = next((item for item in st.session_state.locations if item["id"] == selected_id), None)
+            
+            if loc_data:
+                # Icon + Name
+                icon_display = loc_data.get('icon', 'Default')
+                if icon_display == 'Default': icon_display = '📍'
+                
+                st.markdown(f"### {icon_display} {loc_data['name']}")
+                
+                # Image Carousel
+                image_paths = loc_data.get("image_paths", [])
+                if image_paths:
+                    if len(image_paths) == 1:
+                        st.image(image_paths[0], use_column_width=True)
+                    else:
+                        tabs = st.tabs([f"Img {i+1}" for i in range(len(image_paths))])
+                        for i, tab in enumerate(tabs):
+                            tab.image(image_paths[i], use_column_width=True)
+
+                st.markdown(f"**Coords**: `{loc_data['x']}, {loc_data['y']}, {loc_data['z']}`")
+                
+                if loc_data["description"]:
+                    st.markdown("**Description:**")
+                    st.write(loc_data["description"])
+                
+                st.caption(f"ID: {loc_data['id']}")
+                
+                if st.button("📝 Edit", key=f"btn_edit_{loc_data['id']}"):
+                    st.session_state.edit_mode = True
+                    st.session_state.edit_id = loc_data['id']
+                    st.rerun()
+                
+                if len(selected_ids) > 1:
+                    st.info(f"And {len(selected_ids)-1} other locations selected.")
 
         else:
-            st.error("Location not found.")
-            st.session_state.edit_mode = False
-            st.rerun()
-
-    # Normal Details View
-    elif selected_ids:
-        st.subheader("🔍 Location Details")
-        
-        # Filter DF by selected IDs
-        selected_df = df[df["id"].isin(selected_ids)]
-        
-        for _, loc in selected_df.iterrows():
-            c1, c2 = st.columns([1, 2])
+            st.info("Select a location on the map to see details here.")
             
-            with c1:
-                image_paths = loc.get("image_paths", [])
-                
-                # Helper to safely render image
-                def safe_render_image(container, path, caption):
-                    if path.startswith("http"):
-                        container.image(path, caption=caption, use_column_width=True)
-                    else:
-                        # Local file - check if exists (only works if uploaded)
-                        import os
-                        if os.path.exists(path):
-                            container.image(path, caption=caption, use_column_width=True)
-                        else:
-                            container.warning(f"Image not found on server: {path}")
-                            container.caption(f"Image missing: {path}")
-
-                if image_paths:
-                    if len(image_paths) > 1:
-                        tabs = st.tabs([f"Image {i+1}" for i in range(len(image_paths))])
-                        for i, tab in enumerate(tabs):
-                            safe_render_image(tab, image_paths[i], loc["name"])
-                    elif len(image_paths) == 1:
-                         safe_render_image(st, image_paths[0], loc["name"])
-                else:
-                    st.info("No images available.")
-            
-            with c2:
-                # Display Icon next to name
-                icon_display = loc['icon'] if loc['icon'] != 'Default' else '📍'
-                st.markdown(f"### {icon_display} {loc['name']}")
-                st.markdown(f"**Coordinates:** X: `{loc['x']}`, Y: `{loc['y']}`, Z: `{loc['z']}`")
-                st.markdown(f"**Description:**")
-                st.write(loc["description"])
-                st.caption(f"ID: {loc['id']}")
-                
-                if st.button("📝 Edit", key=f"btn_edit_{loc['id']}"):
-                    st.session_state.edit_mode = True
-                    st.session_state.edit_id = loc['id']
-                    st.rerun()
-            
-            st.divider()
-            
-    else:
-        st.subheader("🔍 Location Details")
-        st.info("Select a point on the map to view details.")
-        
-        with st.expander("View All Locations List"):
-            st.dataframe(df[["name", "x", "y", "z", "description", "icon"]])
+            with st.expander("List View"):
+                st.dataframe(df[["name", "x", "z", "icon"]], height=200)
 
 else:
     st.info("No locations recorded yet. Use the sidebar to add your first discovery!")
