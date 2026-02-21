@@ -107,6 +107,11 @@ def load_data():
                 except:
                     row["image_paths"] = []
             
+            # Ensure missing coordinates are properly cast to None instead of empty strings
+            for col in ["x", "y", "z"]:
+                if col in row and row[col] == "":
+                    row[col] = None
+
             cleaned_records.append(row)
             
         return cleaned_records
@@ -141,6 +146,9 @@ def save_all_data(data):
         
         # Convert image_paths list to JSON string for storage
         df["image_paths"] = df["image_paths"].apply(lambda x: json.dumps(x) if isinstance(x, list) else "[]")
+        
+        # Replace NaN/None with empty strings to prevent Google Sheets API JSON serialization errors
+        df = df.fillna("")
         
         # Update session state with the serialized version? No, we shouldn't touch the passed data object if possible.
         # But we made a new DF, so it's fine.
