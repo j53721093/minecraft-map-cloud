@@ -7,7 +7,7 @@ import google_sheets
 import cloudinary_uploader
 
 # --- Constants ---
-ICON_OPTIONS = ["Default (●)", "🌵", "🌊", "❄️", "🌲", "🪨", "⛏️", "👨‍🌾", "🏡"]
+ICON_OPTIONS = ["Default (●)", "🌵", "🌊", "❄️", "🌲", "🪨", "⛏️", "👨‍🌾", "🏡", "👑", "👾"]
 ICON_MAP_REVERSE = {
     "Default (●)": "Default",
     "🌵": "🌵",
@@ -17,7 +17,9 @@ ICON_MAP_REVERSE = {
     "🪨": "🪨",
     "⛏️": "⛏️",
     "👨‍🌾": "👨‍🌾",
-    "🏡": "🏡"
+    "🏡": "🏡",
+    "👑": "👑",
+    "👾": "👾"
 }
 ICON_MAP_DISPLAY = {v: k for k, v in ICON_MAP_REVERSE.items()}
 
@@ -63,6 +65,7 @@ with st.sidebar:
         
         selected_icon_display = st.selectbox("Map Icon", options=ICON_OPTIONS)
         selected_icon_value = ICON_MAP_REVERSE[selected_icon_display]
+        selected_bg_color = st.selectbox("Icon Background Color", options=["Default (#F5DEB3)", "Light Blue"])
         
         col1, col2 = st.columns(2)
         with col1:
@@ -101,7 +104,8 @@ with st.sidebar:
                 "z": z_coord,
                 "description": description,
                 "image_paths": image_paths,
-                "icon": selected_icon_value
+                "icon": selected_icon_value,
+                "bg_color": selected_bg_color
             }
             st.session_state.locations.append(new_location)
             save_data(st.session_state.locations)
@@ -167,10 +171,12 @@ if locations_data:
     # Ensure 'icon' column exists
     if "icon" not in df.columns:
         df["icon"] = "Default"
+    if "bg_color" not in df.columns:
+        df["bg_color"] = "Default (#F5DEB3)"
 
     # Split DataFrames
-    df_default = df[df["icon"] == "Default"]
-    df_emoji = df[df["icon"] != "Default"]
+    df_default = df[df["icon"] == "Default"].copy()
+    df_emoji = df[df["icon"] != "Default"].copy()
 
     # --- Layout: Map (Left) vs Details (Right) ---
     col_map, col_details = st.columns([2, 1])
@@ -196,19 +202,25 @@ if locations_data:
 
         # Trace 1: Emoji Markers
         if not df_emoji.empty:
+            bg_color_mapped = df_emoji["bg_color"].map({
+                "Default (#F5DEB3)": "rgba(0,0,0,0)",
+                "Light Blue": "lightblue"
+            }).fillna("rgba(0,0,0,0)")
+
             fig.add_trace(go.Scatter(
                 x=df_emoji["x"],
                 y=df_emoji["z"],
-                mode='text',
+                mode='markers+text',
                 text=df_emoji["icon"],
                 textfont=dict(size=20),
+                marker=dict(size=26, color=bg_color_mapped, line=dict(width=0)),
                 hovertext=df_emoji["name"],
                 hoverinfo='text',
                 name="Icons",
                 customdata=df_emoji["id"] # Store ID for selection
             ))
         else:
-            fig.add_trace(go.Scatter(x=[], y=[], mode='text', name="Icons"))
+            fig.add_trace(go.Scatter(x=[], y=[], mode='markers+text', name="Icons"))
 
         fig.update_layout(
             title="World Map (X vs Z)",
@@ -252,6 +264,10 @@ if locations_data:
                     new_icon_display = st.selectbox("Icon", options=ICON_OPTIONS, index=index_val)
                     new_icon_value = ICON_MAP_REVERSE[new_icon_display]
 
+                    current_bg_val = loc_to_edit.get("bg_color", "Default (#F5DEB3)")
+                    bg_options = ["Default (#F5DEB3)", "Light Blue"]
+                    bg_idx = bg_options.index(current_bg_val) if current_bg_val in bg_options else 0
+                    new_bg_color = st.selectbox("Icon Background Color", options=bg_options, index=bg_idx)
 
                     c1, c2 = st.columns(2)
                     new_x = c1.number_input("X", value=loc_to_edit['x'], step=1)
@@ -288,6 +304,7 @@ if locations_data:
                     loc_to_edit['z'] = new_z
                     loc_to_edit['description'] = new_desc
                     loc_to_edit['icon'] = new_icon_value
+                    loc_to_edit['bg_color'] = new_bg_color
                     
                     loc_to_edit['image_paths'] = images_to_keep
 
